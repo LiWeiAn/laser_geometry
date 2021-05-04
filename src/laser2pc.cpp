@@ -13,9 +13,9 @@
 #include "tf2_ros/buffer.h"
 
 
-
-using std::placeholders::_1;
 using namespace std::chrono_literals;
+using std::placeholders::_1;
+
 
 
 class MinimalPublisher : public rclcpp::Node
@@ -25,12 +25,12 @@ public:
             : Node("minimal_publisher"), count_(0)
     {
         publisher_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("laser_pointcloud", 10);
-
         //subscriber for simulation (gazebo):
-        subscription_ = this->create_subscription<sensor_msgs::msg::LaserScan>("scan", rclcpp::QoS(rclcpp::SystemDefaultsQoS()), std::bind(&MinimalPublisher::scanCallback, this, _1));
-        this->set_parameter(rclcpp::Parameter("use_sim_time", true));
+        //subscription_ = this->create_subscription<sensor_msgs::msg::LaserScan>("scan", rclcpp::QoS(rclcpp::SystemDefaultsQoS()), std::bind(&MinimalPublisher::scanCallback, this, _1));
+        //this->set_parameter(rclcpp::Parameter("use_sim_time", true));
+        
         //subscriber for real life scanner:
-        //subscription_ = this->create_subscription<sensor_msgs::msg::LaserScan>("serena/scan", 10 , std::bind(&MinimalPublisher::scanCallback, this, _1));
+        subscription_ = this->create_subscription<sensor_msgs::msg::LaserScan>("pumba/scan", 10 , std::bind(&MinimalPublisher::scanCallback, this, _1));
 
     }
 
@@ -39,20 +39,28 @@ private:
     void scanCallback (const sensor_msgs::msg::LaserScan::SharedPtr scan_in)
     {
 
-        tf2_ros::Buffer buffer_(this->get_clock());
-        tf2_ros::TransformListener listener_(buffer_);
-        rclcpp::Time t = rclcpp::Node::now();
+        clock_ =  this->get_clock();
+        tf2_ros::Buffer buffer_(clock_);
+        listener_ = std::make_shared<tf2_ros::TransformListener>(buffer_);
 
+        rclcpp::Rate rate(30.0);
 
         std::string transform_error;
-        if(!buffer_.canTransform("base_link", "laser",
-                tf2_ros::fromMsg(scan_in->header.stamp) + tf2::durationFromSec(scan_in->ranges.size()*scan_in->time_increment),
-                tf2::durationFromSec(1.0), &transform_error)){
-                return;
+//        if(!buffer_.canTransform("base_link", "laser",
+//                tf2_ros::fromMsg(scan_in->header.stamp) + tf2::durationFromSec(scan_in->ranges.size()*scan_in->time_increment),
+//                tf2::durationFromSec(1.0), &transform_error)){
+        if(!buffer_.canTransform("laser", "base_link", tf2::TimePoint(), &transform_error)){
+            //RCLCPP_INFO(this->get_logger(), "waiting");
+            rate.sleep();
+
         }
-        RCLCPP_INFO(this->get_logger(), "Publishing");
+
+
+
+        rclcpp::Time t = rclcpp::Node::now();
         sensor_msgs::msg::PointCloud2 cloud;
         projector_.transformLaserScanToPointCloud("laser", *scan_in, cloud, buffer_);
+        cloud.header.stamp = t;
         publisher_->publish(cloud);
     }
 
@@ -64,6 +72,7 @@ private:
     std::shared_ptr<tf2_ros::TransformListener> listener_;
     size_t count_;
     rclcpp::Clock::SharedPtr clock_;
+    
 
 };
 
