@@ -12,6 +12,11 @@
 #include "tf2_ros/transform_listener.h"
 #include "tf2_ros/buffer.h"
 
+#include <pcl_conversions/pcl_conversions.h>
+#include <pcl/point_types.h>
+#include <pcl/filters/project_inliers.h>
+#include <pcl/common/transforms.h>
+
 
 using namespace std::chrono_literals;
 using std::placeholders::_1;
@@ -26,8 +31,8 @@ public:
     {
         publisher_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("laser_pointcloud", 10);
         //subscriber for simulation (gazebo):
-        // subscription_ = this->create_subscription<sensor_msgs::msg::LaserScan>("scan", rclcpp::QoS(rclcpp::SystemDefaultsQoS()), std::bind(&MinimalPublisher::scanCallback, this, _1));
-        // this->set_parameter(rclcpp::Parameter("use_sim_time", true));
+        //subscription_ = this->create_subscription<sensor_msgs::msg::LaserScan>("scan", rclcpp::QoS(rclcpp::SystemDefaultsQoS()), std::bind(&MinimalPublisher::scanCallback, this, _1));
+        //this->set_parameter(rclcpp::Parameter("use_sim_time", true));
         
         //subscriber for real life scanner:
         subscription_ = this->create_subscription<sensor_msgs::msg::LaserScan>("pumba/scan", 10 , std::bind(&MinimalPublisher::scanCallback, this, _1));
@@ -39,30 +44,30 @@ private:
     void scanCallback (const sensor_msgs::msg::LaserScan::SharedPtr scan_in)
     {
 
-        // clock_ =  this->get_clock();
-        // tf2_ros::Buffer buffer_(clock_);
-        // listener_ = std::make_shared<tf2_ros::TransformListener>(buffer_);
+        clock_ =  this->get_clock();
+        tf2_ros::Buffer buffer_(clock_);
+        listener_ = std::make_shared<tf2_ros::TransformListener>(buffer_);
 
-        // rclcpp::Rate rate(20.0);
+        rclcpp::Rate rate(20.0);
 
-        // std::string transform_error;
+        std::string transform_error;
         //  if(!buffer_.canTransform("laser", "base_link",
         //          tf2_ros::fromMsg(scan_in->header.stamp) + tf2::durationFromSec(scan_in->ranges.size()*scan_in->time_increment),
         //          tf2::durationFromSec(1.0), &transform_error)){
-        //if(buffer_.canTransform("laser", "base_link", tf2::TimePoint(), &transform_error)){
-        //    //RCLCPP_INFO(this->get_logger(), "waiting");
-        //    rate.sleep();
-        //}
+        if(buffer_.canTransform("laser", "base_link", tf2::TimePoint(), &transform_error)){
+            //RCLCPP_INFO(this->get_logger(), "waiting");
+            rate.sleep();
+        }
 
-        sensor_msgs::msg::PointCloud2 cloud;
         
-        //projector_.transformLaserScanToPointCloud("laser", *scan_in, cloud, buffer_);
+        sensor_msgs::msg::PointCloud2 cloud;
         projector_.projectLaser(*scan_in, cloud);
-        cloud.header.frame_id = "laser";
+
         rclcpp::Time t = rclcpp::Node::now();
         
         
         cloud.header.stamp = t;
+        cloud.frame_id = "laser";
         publisher_->publish(cloud);
     }
 
