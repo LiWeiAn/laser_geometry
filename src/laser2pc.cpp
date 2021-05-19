@@ -25,12 +25,14 @@ public:
             : Node("minimal_publisher"), count_(0)
     {
         publisher_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("laser_pointcloud", 10);
-        //subscriber for simulation (gazebo):
-        // subscription_ = this->create_subscription<sensor_msgs::msg::LaserScan>("scan", rclcpp::QoS(rclcpp::SystemDefaultsQoS()), std::bind(&MinimalPublisher::scanCallback, this, _1));
-        // this->set_parameter(rclcpp::Parameter("use_sim_time", true));
+        //*****************subscriber for simulation (gazebo):
+
+         //subscription_ = this->create_subscription<sensor_msgs::msg::LaserScan>("scan", rclcpp::QoS(rclcpp::SystemDefaultsQoS()), std::bind(&MinimalPublisher::scanCallback, this, _1));
+         //this->set_parameter(rclcpp::Parameter("use_sim_time", true));
         
-        //subscriber for real life scanner:
-        subscription_ = this->create_subscription<sensor_msgs::msg::LaserScan>("pumba/scan", 10 , std::bind(&MinimalPublisher::scanCallback, this, _1));
+        //*****************subscriber for real life scanner:
+        
+        subscription_ = this->create_subscription<sensor_msgs::msg::LaserScan>("serena/scan", 10 , std::bind(&MinimalPublisher::scanCallback, this, _1));
 
     }
 
@@ -58,11 +60,11 @@ private:
         
         //projector_.transformLaserScanToPointCloud("laser", *scan_in, cloud, buffer_);
         projector_.projectLaser(*scan_in, cloud);
-        cloud.header.frame_id = "laser";
+        //cloud.header.frame_id = "laser";
         rclcpp::Time t = rclcpp::Node::now();
         
         
-        cloud.header.stamp = t;
+        cloud.header.stamp = scan_in->header.stamp;
         publisher_->publish(cloud);
     }
 
@@ -70,8 +72,8 @@ private:
     rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr publisher_;
     rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr subscription_;
     laser_geometry::LaserProjection projector_;
-    std::shared_ptr<tf2_ros::Buffer> buffer_;
-    std::shared_ptr<tf2_ros::TransformListener> listener_;
+    // std::shared_ptr<tf2_ros::Buffer> buffer_;
+    // std::shared_ptr<tf2_ros::TransformListener> listener_;
     size_t count_;
     rclcpp::Clock::SharedPtr clock_;
     
